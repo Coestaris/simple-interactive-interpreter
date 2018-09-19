@@ -19,6 +19,7 @@
         "./Variable.ts", 
         "./Func.ts",
         "./SyntaxLogic.ts",
-        "./FunctionAccumulator.ts"
+        "./FunctionAccumulator.ts",
+        "./StringToken.ts"
     ]
 }

@@ -6,16 +6,7 @@ import { TokenDataFunction } from "./tokens/tokenData/TokenDataFunction";
 import { SyntaxLogic } from "./SyntaxLogic";
 import { FunctionAccumulator } from "./FunctionAccumulator";
 import { TokenDataComplex } from "./tokens/tokenData/TokenDataComplex";
-
-export class StringToken { 
-    strVal : string;
-    type : StringTokenType
-
-    constructor(token : string, type : StringTokenType) {
-        this.strVal = token;
-        this.type = type;
-    }
-}
+import { StringToken } from "./StringToken";
 
 enum ListeningType {
     FunctionName,
@@ -124,8 +115,50 @@ class Interpreter
         return result;
     }
 
-    public static parseTokens(tokens : StringToken[], offset : number) : Token[] {
-       
+    public static getTokenTree(tokens : StringToken[], offset : number) : [ StringToken[], string ] {
+        
+        let skiping = false;
+        let skipingToDepth = -1;
+        let depth = 0;
+        let tokenStr = "";
+
+        let currTokens = new Array<StringToken>();
+
+        for(let i = offset; i < tokens.length; i++) {
+            let token = tokens[i];
+            switch (token.type) {
+                case StringTokenType.BrOpened: {
+                    
+                    if(!skiping) {
+                        skiping = true;
+                        skipingToDepth = depth;
+                        let res = this.getTokenTree(tokens, i + 1);
+                        currTokens.push(new StringToken(res["1"], StringTokenType._Complex, res["0"]));
+                    };
+                    depth++;
+                    break;
+                }
+
+                case StringTokenType.BrClosed: {
+                    depth--;
+                    if(depth == skipingToDepth) {
+                        skiping = false;
+                    }
+                    if(depth < 0)
+                        return [currTokens, tokenStr];
+                    break;
+                }
+
+                default: {
+                    if(!skiping) {
+                        currTokens.push(token);
+                    }
+                    break;
+                }
+            }
+            tokenStr += ` ${token.strVal}`;
+        }
+        return [currTokens, tokenStr]
     }
 
     public static input(params: string) : any {
@@ -134,7 +167,7 @@ class Interpreter
         let tokens = this.getTypedTokes(params);
         if(tokens == null) return null;
 
-        let expression = this.parseTokens(tokens);
+        let expression = this.getTokenTree(tokens, 0);
         if(expression == null) return null;
 
         return expression;
@@ -162,9 +195,9 @@ Interpreter.memHandler.functions.push(new Func("func1", new Token("{someToken}",
 
 // == EVALUATE ==
 
-//console.log(Interpreter.input("(func1 4 2) + 2"));
-console.log(Interpreter.input("(func1 10 (20)) + (func1 30 40)"));
-//console.log(Interpreter.input("func1 (2+(2+3)) ((((2 - 1) - 2) - 4) - 5) + 2"));
+console.log(Interpreter.input("(func1 4 2) + 2"));
+//console.log(Interpreter.input("2 + (3 + 4) - 5"));
+//console.log(Interpreter.input("1 + (2 + (3 + (a) + 3) + 2) + 1"));
 //console.log(Interpreter.input("2 * (func1 4 (10 + 6) + 2)"));
 //console.log(Interpreter.input("func1 func1 10 20 30 + 2"));
 //console.log(Interpreter.input("(func1 (func1 (func 10 20) 30) 40) + 2"));

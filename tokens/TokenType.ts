@@ -16,5 +16,7 @@ export enum StringTokenType {
 
     Operator,
     BrOpened,
-    BrClosed
+    BrClosed,
+
+    _Complex
 }
