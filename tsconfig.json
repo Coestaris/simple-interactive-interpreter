@@ -1,0 +1,24 @@
+{
+    "compilerOptions": {
+        "target": "es5",
+        "module": "commonjs",
+        "sourceMap": true,
+        "outDir": "build"
+    },
+    "files": [
+        "./main.ts", 
+        "./tokens/Token.ts",
+        "./tokens/TokenType.ts", 
+        "./tokens/Operator.ts",
+        "./tokens/tokenData/TokenData.ts", 
+        "./tokens/tokenData/TokenDataNumber.ts", 
+        "./tokens/tokenData/TokenDataVariable.ts",
+        "./tokens/tokenData/TokenDataComplex.ts",
+        "./tokens/tokenData/TokenDataFunction.ts",
+        "./MemoryHandler.ts", 
+        "./Variable.ts", 
+        "./Func.ts",
+        "./SyntaxLogic.ts",
+        "./FunctionAccumulator.ts"
+    ]
+}
