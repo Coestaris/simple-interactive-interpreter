@@ -11,7 +11,7 @@ export class FunctionAccumulator {
     public brDepth: number;
     public id : number;
 
-    constructor(expression: TokenDataFunction, brDepth: number) {
+    constructor(expression: TokenDataFunction, brDepth: number = 0) {
         this.data = expression;
         this.max = expression.func.args.length;
         this.count = 0;

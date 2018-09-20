@@ -7,6 +7,7 @@ import { SyntaxLogic } from "./SyntaxLogic";
 import { FunctionAccumulator } from "./FunctionAccumulator";
 import { TokenDataComplex } from "./tokens/tokenData/TokenDataComplex";
 import { StringToken } from "./StringToken";
+import { Operator } from "./tokens/Operator";
 
 enum ListeningType {
     FunctionName,
@@ -121,7 +122,6 @@ class Interpreter
         let skipingToDepth = -1;
         let depth = 0;
         let tokenStr = "";
-
         let currTokens = new Array<StringToken>();
 
         for(let i = offset; i < tokens.length; i++) {
@@ -132,8 +132,7 @@ class Interpreter
                     if(!skiping) {
                         skiping = true;
                         skipingToDepth = depth;
-                        let res = this.getTokenTree(tokens, i + 1);
-                        currTokens.push(new StringToken(res["1"], StringTokenType._Complex, res["0"]));
+                        currTokens.push(this.parseTokenTree(tokens, i + 1));
                     };
                     depth++;
                     break;
@@ -161,16 +160,160 @@ class Interpreter
         return [currTokens, tokenStr]
     }
 
+    public static parseTokenTree(tokens : StringToken[], index : number = 0) {
+        let res = this.getTokenTree(tokens, index);
+        return new StringToken(res["1"], StringTokenType._Complex, res["0"]);
+    }
+
+    public static resolveTokenSyntax(tokenToParse : StringToken) : Token {
+        console.log(`resolveTokenSyntax call on "${tokenToParse.strVal}"`);
+        
+
+        let syntaxLogic = new SyntaxLogic();
+    
+        let expectedTokens = allowedTypes.all;
+        let currentListening = ListeningType.Undef;
+        
+        let fnName : string = null;
+        let fnArgs = new Array<string>();
+        
+        let lastTokenType : StringTokenType;
+
+
+        for(let i = 0; i < tokenToParse.subTokens.length; i++) {
+            
+            let token = tokenToParse.subTokens[i];
+            console.log(`Token: ${token.strVal}, type: ${token.type}. Listening for: ${currentListening}. Allowed: [${expectedTokens.sort().join(', ')}]. Curr Func: ${syntaxLogic.expression.rawValue}`);
+
+            switch (token.type) {
+                case StringTokenType._Complex: {
+                    
+                    let tk = this.resolveTokenSyntax(token);
+
+                    if(lastTokenType == StringTokenType.Number ||
+                        lastTokenType == StringTokenType.Identifier ||
+                        lastTokenType == StringTokenType.Variable ||
+                        lastTokenType == StringTokenType._Complex)
+                    {
+                        if(syntaxLogic.expression.type == TokenType.Complex &&
+                            (syntaxLogic.expression.data as TokenDataComplex).subTokens.length == 0) {
+                            syntaxLogic.pushToken(tk);
+                            syntaxLogic.tokenSwitch();           
+                        } else{
+                            syntaxLogic.tokenSwitch();   
+                            syntaxLogic.pushToken(tk);
+                        }
+
+                    } else if(syntaxLogic.currFunc() != null) {
+
+                        expectedTokens = allowedTypes.numMetButSwitchAllowed;
+                        syntaxLogic.pushToken(tk);
+
+                    } else {
+
+                        expectedTokens = allowedTypes.numMet;
+                        syntaxLogic.pushToken(tk);
+                    }
+                    break;
+                }
+
+                case StringTokenType.FnKeyword: 
+                {
+                    currentListening = ListeningType.FunctionName;
+                }
+                break;
+                case StringTokenType.FnSymbol: 
+                {
+                    expectedTokens = allowedTypes.fnSymbolMet;
+                    //syntaxLogic.registerFunction(fnName, fnArgs, 
+                    //    syntaxLogic.expression);
+                }
+                break; 
+                case StringTokenType.Function:
+                {
+                    syntaxLogic.remFunc(token.strVal, this.memHandler.functions);                        
+                    expectedTokens = allowedTypes.fnSymbolMet;
+                    currentListening = ListeningType.FunctionArgument;                    
+                }
+                break;
+
+                case StringTokenType.Identifier:
+                case StringTokenType.Variable:
+                case StringTokenType.Number:
+                {
+                    if(currentListening == ListeningType.FunctionName) {
+                        
+                        currentListening = ListeningType.FunctionParamDeclarationOrSymbol;
+                        expectedTokens = allowedTypes.operatorMet;
+                        fnName = token.strVal;
+                    } 
+                    else if(currentListening == ListeningType.FunctionParamDeclarationOrSymbol) {
+                        
+                        fnArgs.push(token.strVal);
+                    } 
+                    else if(lastTokenType == StringTokenType.Number ||
+                            lastTokenType == StringTokenType.Identifier ||
+                            lastTokenType == StringTokenType.Variable ||
+                            lastTokenType == StringTokenType._Complex)
+                    {
+                        if(syntaxLogic.expression.type == TokenType.Complex &&
+                            (syntaxLogic.expression.data as TokenDataComplex).subTokens.length == 0) {
+                            syntaxLogic.tokenRegister(token);
+                            syntaxLogic.tokenSwitch();           
+                        } else{
+                            syntaxLogic.tokenSwitch();   
+                            syntaxLogic.tokenRegister(token);
+                        }
+
+                    } else if(syntaxLogic.currFunc() != null) {
+
+                        expectedTokens = allowedTypes.numMetButSwitchAllowed;
+                        syntaxLogic.tokenRegister(token);
+
+                    } else {
+
+                        expectedTokens = allowedTypes.numMet;
+                        syntaxLogic.tokenRegister(token);
+                    }
+                }
+                break;
+                case StringTokenType.Operator:
+                {
+                    expectedTokens = allowedTypes.operatorMet;
+                    syntaxLogic.operatorRegsiter(this.memHandler, token);
+
+                }
+                break;
+            }
+            lastTokenType = token.type;
+        }
+
+        if(syntaxLogic.currFunc() != null) {
+            syntaxLogic.tokenSwitch();
+
+            if(syntaxLogic.currFunc() != null) {
+                
+                console.log(this.ErrMessages.wrongFuncSyntax);
+                return null;
+            }
+        }   
+
+        return syntaxLogic.expression;
+    }
+
     public static input(params: string) : any {
         console.log(`== Parsing "${params}" ==`);
         
         let tokens = this.getTypedTokes(params);
         if(tokens == null) return null;
 
-        let expression = this.getTokenTree(tokens, 0);
-        if(expression == null) return null;
+        let tree = this.parseTokenTree(tokens);
+        if(tree == null) return null;
 
-        return expression;
+        let token = this.resolveTokenSyntax(tree);
+        if(token == null) return null;
+
+        return token;
     }
 
     public static Tokenize(input: string) : string[] {
@@ -195,7 +338,7 @@ Interpreter.memHandler.functions.push(new Func("func1", new Token("{someToken}",
 
 // == EVALUATE ==
 
-console.log(Interpreter.input("(func1 4 2) + 2"));
+console.log(Interpreter.input("func1 2 (5+4)"));
 //console.log(Interpreter.input("2 + (3 + 4) - 5"));
 //console.log(Interpreter.input("1 + (2 + (3 + (a) + 3) + 2) + 1"));
 //console.log(Interpreter.input("2 * (func1 4 (10 + 6) + 2)"));
