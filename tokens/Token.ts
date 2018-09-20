@@ -4,6 +4,7 @@ import {Operator} from "./Operator"
 import { TokenDataComplex } from "./tokenData/TokenDataComplex";
 import { TokenDataNumber } from "./tokenData/TokenDataNumber";
 import { TokenDataFunction } from "./tokenData/TokenDataFunction";
+import { Interpreter } from "../main";
 
 export class Token {
     public type: TokenType;
@@ -21,7 +22,7 @@ export class Token {
         this.type = type;
         switch(type) {
             case TokenType.Complex:
-                this.data = new TokenDataComplex();
+                this.data = new TokenDataComplex(this);
                 break;
             case TokenType.s_Number:
                 this.data = new TokenDataNumber(intValue);
@@ -32,8 +33,69 @@ export class Token {
         }
     }
     
+    public changeType(tokenType : TokenType, data : TokenData) : Token {
+        this.type = tokenType;
+        this.data = data;
+        return this;
+    }
+
     public calc(): number {
-        return null; //TODO: VARS
+        
+        if(this.type == TokenType.Complex) 
+        {
+            let sub = (this.data as TokenDataComplex).subTokens; 
+            if(sub == null || sub.length == 0) {
+                
+                let value = this.parse();
+                this.changeType(TokenType.s_Number, new TokenDataNumber(value));
+                return value;
+
+            }
+
+            if(sub.length == 1) {
+                
+                let value = sub[0].parse();
+                this.changeType(TokenType.s_Number, new TokenDataNumber(value));
+                return value;
+            }
+    
+            while(sub.length != 1) {
+                let index = 0;
+                let maxPriority = 0;
+                for(let i = 0; i < sub.length - 1; i++) {
+                    if(sub[i].operator.priority > maxPriority) {
+                        maxPriority = sub[i].operator.priority;
+                        index = i;
+                    }
+                }
+
+                let newTk = new Token(
+                    "[calculated]", 
+                    TokenType.s_Number, 
+                    sub[index].operator.function(
+                        sub[index], 
+                        sub[index + 1]));
+                newTk.operator = sub[index + 1].operator;
+
+                sub.splice(index, 2, newTk);
+            }
+
+            let val = (sub[0].data as TokenDataNumber).intValue;
+            this.rawValue = val.toString();
+            this.changeType(TokenType.s_Number, new TokenDataNumber(val));
+            return val;
+        } 
+        else if(this.type == TokenType.s_FnCall) 
+        {
+            
+        } 
+        else 
+        {
+
+            return this.parse();
+        }
+
+
     }
 
     private useUnary(n: number): number {
@@ -44,6 +106,29 @@ export class Token {
     }
 
     public parse(): number {
-        return null; //TODO VARS
+
+        if(Interpreter.memHandler.isVar(this.rawValue)) {
+            return Interpreter.memHandler.getVarVal(this.rawValue);
+        } else {
+
+            let stored = (this.data as TokenDataNumber).intValue;
+            if(stored != null) return stored;
+            else {
+                let val = parseInt(this.rawValue);
+                (this.data as TokenDataNumber).intValue = val;
+                return val;
+            } 
+        }
+    }
+
+    public deepClone() : Token {
+        let a = new Token(
+            this.rawValue,
+            this.type
+        );
+        a.data = this.data.clone();
+        a.unary = this.unary;
+
+        return a;
     }
 }

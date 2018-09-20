@@ -7,20 +7,22 @@ import { TokenDataFunction } from "./TokenDataFunction";
 export class TokenDataComplex extends TokenData {
     public subTokens : Token[];
     public subTokenOperators : Operator[];
+    public parrentToken : Token;
 
-    constructor() {
+    constructor(parrent : Token, subTokens = new Array<Token>(), subTokenOperators = new Array<Operator>()) {
         super();
-        this.subTokenOperators = new Array<Operator>();
-        this.subTokens = new Array<Token>();        
+        this.subTokenOperators = subTokenOperators;
+        this.subTokens = subTokens;    
+        this.parrentToken = parrent;    
     }
 
     public canBeCalculated(): boolean {
-        return false; //TODO: VARS
-        //return this.isSimple() || this.subTokens.every(p => p.isSimple());
+
+        return this.isSimple() || this.subTokens.every(p => p.type == TokenType.s_Number);
     }
+
     public isSimple(): boolean {
-        return false; //TODO: VARS
-        //return (this.subTokens == null || this.subTokens.length == 0)
+        return this.parrentToken.type == TokenType.s_Number;
     }
 
     public resolveOps() {
@@ -38,5 +40,13 @@ export class TokenDataComplex extends TokenData {
                 })
             }
         })
+    }
+
+    public clone() : TokenDataComplex {
+        return new TokenDataComplex(
+            this.parrentToken,
+            this.subTokens.map(p => p.deepClone()),
+            this.subTokenOperators
+        );
     }
 }

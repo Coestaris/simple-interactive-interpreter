@@ -15,6 +15,10 @@ export class MemoryHandler {
     public variables : Variable[];
     public functions : Func[];
 
+    public getVarVal(str : string) : number {
+        return this.variables.filter(p => p.name == str)[0].value;
+    }
+
     public isFunc(str : string) : boolean {
         for(const a of this.functions) {
             if(str === a.name) return true;
@@ -39,32 +43,16 @@ export class MemoryHandler {
     }
 
     public isCorrectNumber(str : string) : boolean {
-        return str.split("").every(p => ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "."].
-            indexOf(p) != -1);
+        return str.split("").every(p => ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "."].indexOf(p) != -1);
     }
 
     private operators : Array<Operator> = [
-        new Operator("*", 2, false, (a : Token, b : Token) => {
-            let value = a.parse() + b.parse();
-            return new Token(`C:${value.toString()}`, TokenType.s_Number);
-        }, null),
+        new Operator("*", 2, false, (a : Token, b : Token) : number => a.parse() * b.parse(), null),
+        new Operator("/", 1, false, (a : Token, b : Token) : number => a.parse() / b.parse(), null),
+        new Operator("+", 1, false, (a : Token, b : Token) : number => a.parse() + b.parse(), null),
+        new Operator("-", 1, false, (a : Token, b : Token) : number => a.parse() - b.parse(), null),
 
-        new Operator("/", 1, false, (a : Token, b : Token) => {
-            let value = a.parse() / b.parse();
-            return new Token(`C:${value.toString()}`, TokenType.s_Number);
-        }, null),
-
-        new Operator("+", 1, false, (a : Token, b : Token) => {
-            let value = a.parse() + b.parse();
-            return new Token(`C:${value.toString()}`, TokenType.s_Number);
-        }, null),
-
-        new Operator("-", 1, false, (a : Token, b : Token) => {
-            let value = a.parse() - b.parse();
-            return new Token(`C:${value.toString()}`, TokenType.s_Number);
-        }, null),
-
-        new Operator("=", 2, false, (a : Token, b : Token) => {
+        new Operator("=", 2, false, (a : Token, b : Token) : number => {
             if(!this.isVar(a.rawValue)) {
                 return null;
             }
@@ -73,7 +61,7 @@ export class MemoryHandler {
             this.variables[this.variables.map(p => p.name).lastIndexOf(a.rawValue)].value =
                 value;
 
-            return new Token(`C:${value.toString()}`, TokenType.s_Number);
+            return value;
         }, null),
     ]
 

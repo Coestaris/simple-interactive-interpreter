@@ -73,7 +73,7 @@ export class Interpreter
         wrongFuncSyntax : "Wrong function syntax"
     }
 
-    public static debug = true;
+    public static debug = false;
 
     public static memHandler : MemoryHandler = new MemoryHandler();
 
@@ -319,12 +319,37 @@ export class Interpreter
             this.memHandler.functions.push(
                 new Func(fnName, syntaxLogic.expression, fnArgs)
             );
-        }  
+        }
 
         return [syntaxLogic.expression, fnName == null ? null : fnArgs];
     }
 
-    public static input(params: string) : any {
+    public static calc(token : Token) : number {
+        
+        if(token.type == TokenType.Complex) {
+
+            let data = (token.data as TokenDataComplex);
+            if(data.canBeCalculated()) {
+                return token.calc();
+            }
+    
+            data.subTokens.forEach(p => {
+                this.calc(p);
+            });
+    
+            if(data.canBeCalculated()) {
+
+                return token.calc();
+            } else {
+                console.log(`Cant calculate token ${token}`);
+            }
+
+        } else if(token.type == TokenType.s_FnCall) {
+
+        } else return token.parse();
+    }  
+
+    public static input(params: string) : number {
         if(this.debug)
             console.log(`== Parsing "${params}" ==`);
         
@@ -337,19 +362,19 @@ export class Interpreter
         let token = this.resolveTokenSyntax(tree);
         if(token == null) return null;
 
-        if(!this.linkTokens(token["0"], 0, -1, token["1"]))
+        if(!this.linkTokens(token["0"], 0, null, token["1"]))
             return null;
 
-        return token;
+        return this.calc(token["0"]);
     }
 
-    public static linkTokens(token : Token, index : number, maxIndex : number, fnArgs : string[] = null) : boolean {
+    public static linkTokens(token : Token, index : number, tokens : Token[], fnArgs : string[] = null) : boolean {
 
         if(token.type == TokenType.Complex) {
            
             let sub = (token.data as TokenDataComplex).subTokens;
             for(let i = 0; i < sub.length; i++) {
-                if(!this.linkTokens(sub[i], i, sub.length, fnArgs)) {
+                if(!this.linkTokens(sub[i], i, sub, fnArgs)) {
                     return false;
                 }
             };
@@ -358,14 +383,14 @@ export class Interpreter
             
             let sub = (token.data as TokenDataFunction).arguments;
             for(let i = 0; i < sub.length; i++) {
-                if(!this.linkTokens(sub[i], i, sub.length, fnArgs)) {
+                if(!this.linkTokens(sub[i], i, sub, fnArgs)) {
                     return false;
                 }
             };
 
         } else {
 
-            if(maxIndex != 1 && index == maxIndex - 1 && token.operator == null)
+            if(tokens.length != 1 && index == tokens.length - 1 && tokens[index - 1].operator == null)
             {
                 console.log("Unexpected token");
                 return false;
@@ -409,8 +434,8 @@ function Test(input : string, expected : string) {
     console.log(`> ${input}`);
     let output = Interpreter.input(input);
     console.log(`    ${output}`);
-    
-    if(expected == output) {
+
+    if(expected == output.toString()) {
         console.log("[PASS]");
     } else {
         console.log(`[FAIL]: Expected "${expected}"`);
@@ -427,9 +452,11 @@ function Test(input : string, expected : string) {
 
 // == EVALUATE ==
 
-Test("fn avg x y => (x + y) / 2", null)
+//Test("fn avg x y => (x + y) / 2", null)
+
+Test("2 * (2 + 2)", "8");
 //Test("avg 4 2", "3")
-Test("avg 4", null)
+//Test("avg 4", null)
 //Test("avg 2", null)
 
 //Test("x = 1", "1");

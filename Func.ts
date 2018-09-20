@@ -1,4 +1,6 @@
 import { Token } from "./tokens/Token";
+import { TokenType } from "./tokens/TokenType";
+import { TokenDataComplex } from "./tokens/tokenData/TokenDataComplex";
 
 export class Func {
 
@@ -13,5 +15,31 @@ export class Func {
         this.name = name;
         this.expression = exp;
         this.args = args;
+    }
+
+    public call(args : Token[]) : number {
+        if(args.length != this.args.length) {
+            throw "Unexpected length difference";
+        }
+
+        let copy = this.expression.deepClone();
+
+        for(let i = 0; i < args.length; i++) {
+            this.findAndReplace(copy, this.args[i], args[i]);
+        }
+
+        return copy.calc();
+    }
+
+    private findAndReplace(whereToFind : Token, toFind : string, toReplace : Token) {
+        for(const tk of (whereToFind.data as TokenDataComplex).subTokens) {
+            if(tk.type == TokenType.Complex) this.findAndReplace(tk, toFind, toReplace);
+            else {
+
+                if(tk.rawValue.trim() == toFind) {
+                    tk.changeType(TokenType.Complex, new TokenDataComplex(tk, [toReplace]));
+                }
+            }
+        }
     }
 }

@@ -5,7 +5,10 @@ export class TokenDataNumber extends TokenData {
 
     public constructor(value : number) {
         super();
-
         this.intValue = value;
+    }
+
+    public clone() : TokenDataNumber {
+        return new TokenDataNumber(this.intValue); 
     }
 }
