@@ -28,7 +28,7 @@ export class Func {
             this.findAndReplace(copy, this.args[i], args[i]);
         }
 
-        return copy.calc();
+        return Token.calc(copy);
     }
 
     private findAndReplace(whereToFind : Token, toFind : string, toReplace : Token) {
@@ -38,6 +38,7 @@ export class Func {
 
                 if(tk.rawValue.trim() == toFind) {
                     tk.changeType(TokenType.Complex, new TokenDataComplex(tk, [toReplace]));
+                    tk.rawValue = "{changed-type}"
                 }
             }
         }

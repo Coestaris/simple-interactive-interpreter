@@ -42,7 +42,7 @@ export class SyntaxLogic {
 
     public remFunc(fnName: string, funcs: Func[]) {
         this.functionsToParse.push(new FunctionAccumulator(
-            new TokenDataFunction(funcs.filter(p => p.name == fnName)[0]),
+            new TokenDataFunction(this.expression, funcs.filter(p => p.name == fnName)[0]),
         ));
 
         let funcCall = new Token(`==FUNC-CALL(${this.currFunc().id})==`, TokenType.s_FnCall);

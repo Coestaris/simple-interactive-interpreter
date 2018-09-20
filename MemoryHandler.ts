@@ -53,11 +53,19 @@ export class MemoryHandler {
         new Operator("-", 1, false, (a : Token, b : Token) : number => a.parse() - b.parse(), null),
 
         new Operator("=", 2, false, (a : Token, b : Token) : number => {
+            let value = b.parse();
+
             if(!this.isVar(a.rawValue)) {
-                return null;
+                this.variables.push(
+                    new Variable(
+                        a.rawValue,
+                        value
+                    )
+                );
+
+                return value;
             }
 
-            let value = b.parse();
             this.variables[this.variables.map(p => p.name).lastIndexOf(a.rawValue)].value =
                 value;
 

@@ -324,31 +324,6 @@ export class Interpreter
         return [syntaxLogic.expression, fnName == null ? null : fnArgs];
     }
 
-    public static calc(token : Token) : number {
-        
-        if(token.type == TokenType.Complex) {
-
-            let data = (token.data as TokenDataComplex);
-            if(data.canBeCalculated()) {
-                return token.calc();
-            }
-    
-            data.subTokens.forEach(p => {
-                this.calc(p);
-            });
-    
-            if(data.canBeCalculated()) {
-
-                return token.calc();
-            } else {
-                console.log(`Cant calculate token ${token}`);
-            }
-
-        } else if(token.type == TokenType.s_FnCall) {
-
-        } else return token.parse();
-    }  
-
     public static input(params: string) : number {
         if(this.debug)
             console.log(`== Parsing "${params}" ==`);
@@ -365,7 +340,8 @@ export class Interpreter
         if(!this.linkTokens(token["0"], 0, null, token["1"]))
             return null;
 
-        return this.calc(token["0"]);
+        if(token["1"] == null) return Token.calc(token["0"]);
+        else null;
     }
 
     public static linkTokens(token : Token, index : number, tokens : Token[], fnArgs : string[] = null) : boolean {
@@ -399,7 +375,7 @@ export class Interpreter
             if(this.memHandler.isCorrectNumber(token.rawValue)) 
                 (token.data as TokenDataNumber).intValue = parseInt(token.rawValue);
 
-            else if(this.memHandler.isFunc(token.rawValue)) {
+            else if(this.memHandler.isVar(token.rawValue)) {
                 //OK
             } 
             else if(fnArgs != null && fnArgs.indexOf(token.rawValue) != -1) {
@@ -430,12 +406,12 @@ export class Interpreter
     }
 }
 
-function Test(input : string, expected : string) {
+function Test(input : string, expected : number) {
     console.log(`> ${input}`);
     let output = Interpreter.input(input);
     console.log(`    ${output}`);
 
-    if(expected == output.toString()) {
+    if(expected == output) {
         console.log("[PASS]");
     } else {
         console.log(`[FAIL]: Expected "${expected}"`);
@@ -452,14 +428,14 @@ function Test(input : string, expected : string) {
 
 // == EVALUATE ==
 
-//Test("fn avg x y => (x + y) / 2", null)
 
-Test("2 * (2 + 2)", "8");
-//Test("avg 4 2", "3")
-//Test("avg 4", null)
-//Test("avg 2", null)
+Test("fn echo x => x", null)
+Test("fn add x y => x + y", null)
+Test("add echo 4 echo 3", 7)
 
-//Test("x = 1", "1");
-//Test("x", "1");
-//Test("x + 3", "4");
+//Test("2 * (2 + 2) - 5 + 2", 5);
+//Test("1+(1+(1+(1+(1+(1+5+2)+2)+2)+2)+2)+2", 23);
+//Test("x = 1", 1);
+//Test("x", 1);
+//Test("x + 3", 4);
 //Test("y + 3", null);

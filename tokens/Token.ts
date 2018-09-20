@@ -28,7 +28,7 @@ export class Token {
                 this.data = new TokenDataNumber(intValue);
                 break;
             case TokenType.s_FnCall:
-                this.data = new TokenDataFunction(null); 
+                this.data = new TokenDataFunction(this, null); 
                 break;
         }
     }
@@ -39,7 +39,7 @@ export class Token {
         return this;
     }
 
-    public calc(): number {
+    public calcSubs(): number {
         
         if(this.type == TokenType.Complex) 
         {
@@ -128,7 +128,40 @@ export class Token {
         );
         a.data = this.data.clone();
         a.unary = this.unary;
+        a.operator = this.operator;
 
         return a;
     }
+
+    public static calc(token : Token) : number {
+        
+        if(token.type == TokenType.Complex) {
+
+            let data = (token.data as TokenDataComplex);
+            if(data.canBeCalculated()) {
+                return token.calcSubs();
+            }
+    
+            data.subTokens.forEach(p => {
+                this.calc(p);
+            });
+    
+            if(data.canBeCalculated()) {
+
+                return token.calcSubs();
+            } else {
+                console.log(`Cant calculate token ${token}`);
+            }
+
+        } else if(token.type == TokenType.s_FnCall) {
+
+            let data = (token.data as TokenDataFunction);
+            data.arguments.forEach(p => {
+                this.calc(p);
+            })
+
+            return data.call();
+
+        } else return token.parse();
+    }  
 }
