@@ -1,6 +1,8 @@
 import {Variable} from "./Variable"
 import {Func} from "./Func"
 import {Operator} from "./tokens/Operator"
+import { Token } from "./tokens/Token";
+import { TokenType } from "./tokens/TokenType";
 
 export class MemoryHandler {
 
@@ -42,11 +44,37 @@ export class MemoryHandler {
     }
 
     private operators : Array<Operator> = [
-        new Operator("+", 1, false, (a, b) => a + b, null),
-        new Operator("-", 1, false, (a, b) => a - b, null),
-        new Operator("*", 2, false, (a, b) => a * b, null),
-        new Operator("$", 2, false, (a, b) => a / b, null),
-        new Operator("=", 3, false, (a, b) => a - b, null),
+        new Operator("*", 2, false, (a : Token, b : Token) => {
+            let value = a.parse() + b.parse();
+            return new Token(`C:${value.toString()}`, TokenType.s_Number);
+        }, null),
+
+        new Operator("/", 1, false, (a : Token, b : Token) => {
+            let value = a.parse() / b.parse();
+            return new Token(`C:${value.toString()}`, TokenType.s_Number);
+        }, null),
+
+        new Operator("+", 1, false, (a : Token, b : Token) => {
+            let value = a.parse() + b.parse();
+            return new Token(`C:${value.toString()}`, TokenType.s_Number);
+        }, null),
+
+        new Operator("-", 1, false, (a : Token, b : Token) => {
+            let value = a.parse() - b.parse();
+            return new Token(`C:${value.toString()}`, TokenType.s_Number);
+        }, null),
+
+        new Operator("=", 2, false, (a : Token, b : Token) => {
+            if(!this.isVar(a.rawValue)) {
+                return null;
+            }
+
+            let value = b.parse();
+            this.variables[this.variables.map(p => p.name).lastIndexOf(a.rawValue)].value =
+                value;
+
+            return new Token(`C:${value.toString()}`, TokenType.s_Number);
+        }, null),
     ]
 
     private InitOps() {

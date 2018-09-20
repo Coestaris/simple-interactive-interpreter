@@ -10,7 +10,7 @@ import { Operator } from "./tokens/Operator";
 
 export class SyntaxLogic {
     
-    private expressionStack : Token[];
+    public expressionStack : Token[];
 
     public expression : Token;
     public functionsToParse : FunctionAccumulator[];
@@ -27,8 +27,8 @@ export class SyntaxLogic {
         }
     }
 
-    public constructor() {
-        this.expression = new Token("=ROOT=", TokenType.Complex);
+    public constructor(name : string = "") {
+        this.expression = new Token(`=ROOT${name == "" ? "" : `(of ${name})`}=`, TokenType.Complex);
         this.functionsToParse = new Array<FunctionAccumulator>();
         this.expressionStack = new Array<Token>();
     }
@@ -56,21 +56,24 @@ export class SyntaxLogic {
         this.expression = tk;
     }
 
-    public tokenSwitch() : boolean {
+    public tokenSwitch() {
         console.log("!!!!!!!SWITCHED!!!!!!");
 
         this.currFunc().push(this.expression);
         this.expression = this.expressionStack.pop();
-
         
-        while(this.currFunc().full()) {
+        let f = false;
 
+        while(this.functionsToParse.length != 0 && this.currFunc().full()) {
+
+            f = true;
             console.log("===============FUNC END==================");
             
             this.functionsToParse.pop();
             this.expression = this.expressionStack.pop();
 
             if(this.currFunc() != null) {
+
                 this.currFunc().push(this.expression);
                 this.expression = this.expressionStack.pop();
 
@@ -78,14 +81,13 @@ export class SyntaxLogic {
                 this.expressionStack.push(this.expression);
                 this.expression = tk;
             }
-
-            return true;
-
         };
         
-        let tk = new Token(`=FUNC-ARG(${this.currFunc().id})(${this.currFunc().count})=`, TokenType.Complex);
-        this.expressionStack.push(this.expression);
-        this.expression = tk;
+        if(!f) {
+            let tk = new Token(`=FUNC-ARG(${this.currFunc().id})(${this.currFunc().count})=`, TokenType.Complex);
+            this.expressionStack.push(this.expression);
+            this.expression = tk;
+        }
     }
 
     public tokenRegister(token: StringToken) {
@@ -99,6 +101,19 @@ export class SyntaxLogic {
     }
 
     public finalize() {
+
+        if(this.currFunc() != null) {
+            this.tokenSwitch();
+            
+            while(this.expressionStack.length !=0)
+                this.expression = this.expressionStack.pop(); 
+                //Trying to correct some syntax errors
+
+            if(this.currFunc() != null) {
+                return null;
+            }
+        }   
+
         (this.expression.data as TokenDataComplex).resolveOps();
     }
 }

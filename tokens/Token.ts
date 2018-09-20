@@ -16,7 +16,7 @@ export class Token {
         return `${this.rawValue}`;
     }
 
-    public constructor(value: string, type : TokenType) {
+    public constructor(value: string, type : TokenType, intValue : number = null) {
         this.rawValue = value == null ? "" : value;
         this.type = type;
         switch(type) {
@@ -24,7 +24,7 @@ export class Token {
                 this.data = new TokenDataComplex();
                 break;
             case TokenType.s_Number:
-                this.data = new TokenDataNumber();
+                this.data = new TokenDataNumber(intValue);
                 break;
             case TokenType.s_FnCall:
                 this.data = new TokenDataFunction(null); 
@@ -37,13 +37,13 @@ export class Token {
     }
 
     private useUnary(n: number): number {
-        this.unary.forEach(p => {
-            n = p.unaryFunc(n);
-        });
+        //this.unary.forEach(p => {
+           //// n = p.unaryFunc(n);
+        //});
         return n;
     }
 
-    private parse(): number {
+    public parse(): number {
         return null; //TODO VARS
     }
 }

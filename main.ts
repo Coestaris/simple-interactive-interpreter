@@ -168,8 +168,7 @@ class Interpreter
     public static resolveTokenSyntax(tokenToParse : StringToken) : Token {
         console.log(`resolveTokenSyntax call on "${tokenToParse.strVal}"`);
         
-
-        let syntaxLogic = new SyntaxLogic();
+        let syntaxLogic = new SyntaxLogic(tokenToParse.strVal);
     
         let expectedTokens = allowedTypes.all;
         let currentListening = ListeningType.Undef;
@@ -179,6 +178,32 @@ class Interpreter
         
         let lastTokenType : StringTokenType;
 
+        function defaultSwitchCheck(tk : Token) {
+            if(lastTokenType == StringTokenType.Number ||
+                lastTokenType == StringTokenType.Identifier ||
+                lastTokenType == StringTokenType.Variable ||
+                lastTokenType == StringTokenType._Complex)
+            {
+                if(syntaxLogic.expression.type == TokenType.Complex &&
+                    (syntaxLogic.expression.data as TokenDataComplex).subTokens.length == 0) {
+                    syntaxLogic.pushToken(tk);
+                    syntaxLogic.tokenSwitch();           
+                } else {
+                    syntaxLogic.tokenSwitch();   
+                    syntaxLogic.pushToken(tk);
+                }
+
+            } else if(syntaxLogic.currFunc() != null) {
+
+                expectedTokens = allowedTypes.numMetButSwitchAllowed;
+                syntaxLogic.pushToken(tk);
+
+            } else {
+
+                expectedTokens = allowedTypes.numMet;
+                syntaxLogic.pushToken(tk);
+            }
+        }
 
         for(let i = 0; i < tokenToParse.subTokens.length; i++) {
             
@@ -189,31 +214,7 @@ class Interpreter
                 case StringTokenType._Complex: {
                     
                     let tk = this.resolveTokenSyntax(token);
-
-                    if(lastTokenType == StringTokenType.Number ||
-                        lastTokenType == StringTokenType.Identifier ||
-                        lastTokenType == StringTokenType.Variable ||
-                        lastTokenType == StringTokenType._Complex)
-                    {
-                        if(syntaxLogic.expression.type == TokenType.Complex &&
-                            (syntaxLogic.expression.data as TokenDataComplex).subTokens.length == 0) {
-                            syntaxLogic.pushToken(tk);
-                            syntaxLogic.tokenSwitch();           
-                        } else{
-                            syntaxLogic.tokenSwitch();   
-                            syntaxLogic.pushToken(tk);
-                        }
-
-                    } else if(syntaxLogic.currFunc() != null) {
-
-                        expectedTokens = allowedTypes.numMetButSwitchAllowed;
-                        syntaxLogic.pushToken(tk);
-
-                    } else {
-
-                        expectedTokens = allowedTypes.numMet;
-                        syntaxLogic.pushToken(tk);
-                    }
+                    defaultSwitchCheck(tk);
                     break;
                 }
 
@@ -225,12 +226,19 @@ class Interpreter
                 case StringTokenType.FnSymbol: 
                 {
                     expectedTokens = allowedTypes.fnSymbolMet;
-                    //syntaxLogic.registerFunction(fnName, fnArgs, 
-                    //    syntaxLogic.expression);
+                    currentListening = ListeningType.AnyNumericToken;
                 }
                 break; 
                 case StringTokenType.Function:
                 {
+                    if(lastTokenType == StringTokenType.Number ||
+                        lastTokenType == StringTokenType.Identifier ||
+                        lastTokenType == StringTokenType.Variable ||
+                        lastTokenType == StringTokenType._Complex)
+                    { 
+                        syntaxLogic.tokenSwitch();
+                    }
+
                     syntaxLogic.remFunc(token.strVal, this.memHandler.functions);                        
                     expectedTokens = allowedTypes.fnSymbolMet;
                     currentListening = ListeningType.FunctionArgument;                    
@@ -288,15 +296,13 @@ class Interpreter
             lastTokenType = token.type;
         }
 
-        if(syntaxLogic.currFunc() != null) {
-            syntaxLogic.tokenSwitch();
+        syntaxLogic.finalize();
 
-            if(syntaxLogic.currFunc() != null) {
-                
-                console.log(this.ErrMessages.wrongFuncSyntax);
-                return null;
-            }
-        }   
+        if(fnName != null) {
+            this.memHandler.functions.push(
+                new Func(fnName, syntaxLogic.expression, fnArgs)
+            );
+        }  
 
         return syntaxLogic.expression;
     }
@@ -333,19 +339,20 @@ Interpreter.memHandler.functions.push(new Func("func1", new Token("{someToken}",
 // 2. Determining token types
 // 3. Building recursive string-token tree
 // 4. Resolving recursive tree syntax logic
-// 6. Resolving operators
-// 5. Linking tokens
+// 5. Resolving operators
+// 6. Linking tokens
 
 // == EVALUATE ==
 
-console.log(Interpreter.input("func1 2 (5+4)"));
-//console.log(Interpreter.input("2 + (3 + 4) - 5"));
+//console.log(Interpreter.input("fn echo x => x"));
+//console.log(Interpreter.input("fn add x y => x + y"));
+console.log(Interpreter.input("x = 13 + (y = 3)"));
+
+//console.log(Interpreter.input("func1 func1 func1 10 20 30 40 + 2"));
 //console.log(Interpreter.input("1 + (2 + (3 + (a) + 3) + 2) + 1"));
 //console.log(Interpreter.input("2 * (func1 4 (10 + 6) + 2)"));
 //console.log(Interpreter.input("func1 func1 10 20 30 + 2"));
-//console.log(Interpreter.input("(func1 (func1 (func 10 20) 30) 40) + 2"));
-//console.log(Interpreter.input("func1 func1 func 10 20 30 40 + 2"));
+//console.log(Interpreter.input("(func1 (func1 (func1 10 20) 30) 40) + 2"));
 
 
-//console.log(Interpreter.input("fn func1 a b => 2 + a + b"));
 //console.log(Interpreter.input("fn func2 => func1 3"));
