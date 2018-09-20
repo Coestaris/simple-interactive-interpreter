@@ -8,6 +8,7 @@ import { FunctionAccumulator } from "./FunctionAccumulator";
 import { TokenDataComplex } from "./tokens/tokenData/TokenDataComplex";
 import { StringToken } from "./StringToken";
 import { Operator } from "./tokens/Operator";
+import { TokenDataNumber } from "./tokens/tokenData/TokenDataNumber";
 
 enum ListeningType {
     FunctionName,
@@ -62,7 +63,7 @@ class allowedTypes
     ]
 }
 
-class Interpreter
+export class Interpreter
 {
     private static ErrMessages = 
     {
@@ -71,6 +72,8 @@ class Interpreter
         unexpectedToken : "Unexpected token",
         wrongFuncSyntax : "Wrong function syntax"
     }
+
+    public static debug = true;
 
     public static memHandler : MemoryHandler = new MemoryHandler();
 
@@ -165,8 +168,9 @@ class Interpreter
         return new StringToken(res["1"], StringTokenType._Complex, res["0"]);
     }
 
-    public static resolveTokenSyntax(tokenToParse : StringToken) : Token {
-        console.log(`resolveTokenSyntax call on "${tokenToParse.strVal}"`);
+    public static resolveTokenSyntax(tokenToParse : StringToken) : [Token, string[]] {
+        if(this.debug)
+            console.log(`resolveTokenSyntax call on "${tokenToParse.strVal}"`);
         
         let syntaxLogic = new SyntaxLogic(tokenToParse.strVal);
     
@@ -178,43 +182,47 @@ class Interpreter
         
         let lastTokenType : StringTokenType;
 
-        function defaultSwitchCheck(tk : Token) {
-            if(lastTokenType == StringTokenType.Number ||
-                lastTokenType == StringTokenType.Identifier ||
-                lastTokenType == StringTokenType.Variable ||
-                lastTokenType == StringTokenType._Complex)
-            {
-                if(syntaxLogic.expression.type == TokenType.Complex &&
-                    (syntaxLogic.expression.data as TokenDataComplex).subTokens.length == 0) {
-                    syntaxLogic.pushToken(tk);
-                    syntaxLogic.tokenSwitch();           
-                } else {
-                    syntaxLogic.tokenSwitch();   
-                    syntaxLogic.pushToken(tk);
-                }
-
-            } else if(syntaxLogic.currFunc() != null) {
-
-                expectedTokens = allowedTypes.numMetButSwitchAllowed;
-                syntaxLogic.pushToken(tk);
-
-            } else {
-
-                expectedTokens = allowedTypes.numMet;
-                syntaxLogic.pushToken(tk);
-            }
-        }
-
         for(let i = 0; i < tokenToParse.subTokens.length; i++) {
             
             let token = tokenToParse.subTokens[i];
-            console.log(`Token: ${token.strVal}, type: ${token.type}. Listening for: ${currentListening}. Allowed: [${expectedTokens.sort().join(', ')}]. Curr Func: ${syntaxLogic.expression.rawValue}`);
+            if(this.debug)
+                console.log(`Token: ${token.strVal}, type: ${token.type}. Listening for: ${currentListening}. Allowed: [${expectedTokens.sort().join(', ')}]. Curr Func: ${syntaxLogic.expression.rawValue}`);
 
             switch (token.type) {
                 case StringTokenType._Complex: {
                     
                     let tk = this.resolveTokenSyntax(token);
-                    defaultSwitchCheck(tk);
+                    if(tk == null) return null;
+
+                    if(lastTokenType == StringTokenType.Number ||
+                        lastTokenType == StringTokenType.Identifier ||
+                        lastTokenType == StringTokenType.Variable ||
+                        lastTokenType == StringTokenType._Complex)
+                    {
+                        if(syntaxLogic.expression.type == TokenType.Complex &&
+                            (syntaxLogic.expression.data as TokenDataComplex).subTokens.length == 0) {
+                            syntaxLogic.pushToken(tk["0"]);
+                            if(!syntaxLogic.tokenSwitch()) {
+                                return null;
+                            }           
+                        } else {
+                            if(!syntaxLogic.tokenSwitch()) {
+                                return null;
+                            }   
+                            syntaxLogic.pushToken(tk["0"]);
+                        }
+        
+                    } else if(syntaxLogic.currFunc() != null) {
+        
+                        expectedTokens = allowedTypes.numMetButSwitchAllowed;
+                        syntaxLogic.pushToken(tk["0"]);
+        
+                    } else {
+        
+                        expectedTokens = allowedTypes.numMet;
+                        syntaxLogic.pushToken(tk["0"]);
+                    }
+
                     break;
                 }
 
@@ -236,7 +244,9 @@ class Interpreter
                         lastTokenType == StringTokenType.Variable ||
                         lastTokenType == StringTokenType._Complex)
                     { 
-                        syntaxLogic.tokenSwitch();
+                        if(!syntaxLogic.tokenSwitch()) {
+                            return null;
+                        }
                     }
 
                     syntaxLogic.remFunc(token.strVal, this.memHandler.functions);                        
@@ -267,9 +277,14 @@ class Interpreter
                         if(syntaxLogic.expression.type == TokenType.Complex &&
                             (syntaxLogic.expression.data as TokenDataComplex).subTokens.length == 0) {
                             syntaxLogic.tokenRegister(token);
-                            syntaxLogic.tokenSwitch();           
+                            if(!syntaxLogic.tokenSwitch()) {
+                                return null;
+                            }   
+
                         } else{
-                            syntaxLogic.tokenSwitch();   
+                            if(!syntaxLogic.tokenSwitch()) {
+                                return null;
+                            }   
                             syntaxLogic.tokenRegister(token);
                         }
 
@@ -296,7 +311,9 @@ class Interpreter
             lastTokenType = token.type;
         }
 
-        syntaxLogic.finalize();
+        if(!syntaxLogic.finalize()) {
+            return null;
+        }
 
         if(fnName != null) {
             this.memHandler.functions.push(
@@ -304,11 +321,12 @@ class Interpreter
             );
         }  
 
-        return syntaxLogic.expression;
+        return [syntaxLogic.expression, fnName == null ? null : fnArgs];
     }
 
     public static input(params: string) : any {
-        console.log(`== Parsing "${params}" ==`);
+        if(this.debug)
+            console.log(`== Parsing "${params}" ==`);
         
         let tokens = this.getTypedTokes(params);
         if(tokens == null) return null;
@@ -319,7 +337,62 @@ class Interpreter
         let token = this.resolveTokenSyntax(tree);
         if(token == null) return null;
 
+        if(!this.linkTokens(token["0"], 0, -1, token["1"]))
+            return null;
+
         return token;
+    }
+
+    public static linkTokens(token : Token, index : number, maxIndex : number, fnArgs : string[] = null) : boolean {
+
+        if(token.type == TokenType.Complex) {
+           
+            let sub = (token.data as TokenDataComplex).subTokens;
+            for(let i = 0; i < sub.length; i++) {
+                if(!this.linkTokens(sub[i], i, sub.length, fnArgs)) {
+                    return false;
+                }
+            };
+        } 
+        else if(token.type == TokenType.s_FnCall) {
+            
+            let sub = (token.data as TokenDataFunction).arguments;
+            for(let i = 0; i < sub.length; i++) {
+                if(!this.linkTokens(sub[i], i, sub.length, fnArgs)) {
+                    return false;
+                }
+            };
+
+        } else {
+
+            if(maxIndex != 1 && index == maxIndex - 1 && token.operator == null)
+            {
+                console.log("Unexpected token");
+                return false;
+            }
+
+            if(this.memHandler.isCorrectNumber(token.rawValue)) 
+                (token.data as TokenDataNumber).intValue = parseInt(token.rawValue);
+
+            else if(this.memHandler.isFunc(token.rawValue)) {
+                //OK
+            } 
+            else if(fnArgs != null && fnArgs.indexOf(token.rawValue) != -1) {
+
+                if(token.operator != null && token.operator.value == "=")
+                {
+                    console.log("You cannot assign value to fnArg");
+                    return false;
+                }
+
+            } 
+            else if(token.operator == null || token.operator.value != "=") { //TODO 
+                console.log(`Unknown variable ${token.rawValue}`);
+                return false;
+            }
+        }
+
+        return true;
     }
 
     public static Tokenize(input: string) : string[] {
@@ -332,7 +405,17 @@ class Interpreter
     }
 }
 
-Interpreter.memHandler.functions.push(new Func("func1", new Token("{someToken}", TokenType.Complex), ["a", "b"]));
+function Test(input : string, expected : string) {
+    console.log(`> ${input}`);
+    let output = Interpreter.input(input);
+    console.log(`    ${output}`);
+    
+    if(expected == output) {
+        console.log("[PASS]");
+    } else {
+        console.log(`[FAIL]: Expected "${expected}"`);
+    }
+}
 
 // == PARSE ==
 // 1. Tokenizing
@@ -344,15 +427,12 @@ Interpreter.memHandler.functions.push(new Func("func1", new Token("{someToken}",
 
 // == EVALUATE ==
 
-//console.log(Interpreter.input("fn echo x => x"));
-//console.log(Interpreter.input("fn add x y => x + y"));
-console.log(Interpreter.input("x = 13 + (y = 3)"));
+Test("fn avg x y => (x + y) / 2", null)
+//Test("avg 4 2", "3")
+Test("avg 4", null)
+//Test("avg 2", null)
 
-//console.log(Interpreter.input("func1 func1 func1 10 20 30 40 + 2"));
-//console.log(Interpreter.input("1 + (2 + (3 + (a) + 3) + 2) + 1"));
-//console.log(Interpreter.input("2 * (func1 4 (10 + 6) + 2)"));
-//console.log(Interpreter.input("func1 func1 10 20 30 + 2"));
-//console.log(Interpreter.input("(func1 (func1 (func1 10 20) 30) 40) + 2"));
-
-
-//console.log(Interpreter.input("fn func2 => func1 3"));
+//Test("x = 1", "1");
+//Test("x", "1");
+//Test("x + 3", "4");
+//Test("y + 3", null);

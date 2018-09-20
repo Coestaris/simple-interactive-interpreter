@@ -7,6 +7,7 @@ import { Func } from "./Func";
 import { TokenDataFunction } from "./tokens/tokenData/TokenDataFunction";
 import { MemoryHandler } from "./MemoryHandler";
 import { Operator } from "./tokens/Operator";
+import { Interpreter } from "./main";
 
 export class SyntaxLogic {
     
@@ -56,8 +57,14 @@ export class SyntaxLogic {
         this.expression = tk;
     }
 
-    public tokenSwitch() {
-        console.log("!!!!!!!SWITCHED!!!!!!");
+    public tokenSwitch() : boolean {
+        if(Interpreter.debug) console.log("!!!!!!!SWITCHED!!!!!!");
+
+        if(this.functionsToParse.length == 0) {
+            
+            console.log("Unexpected token");
+            return false;
+        }
 
         this.currFunc().push(this.expression);
         this.expression = this.expressionStack.pop();
@@ -67,7 +74,7 @@ export class SyntaxLogic {
         while(this.functionsToParse.length != 0 && this.currFunc().full()) {
 
             f = true;
-            console.log("===============FUNC END==================");
+            if(Interpreter.debug) console.log("===============FUNC END==================");
             
             this.functionsToParse.pop();
             this.expression = this.expressionStack.pop();
@@ -88,6 +95,8 @@ export class SyntaxLogic {
             this.expressionStack.push(this.expression);
             this.expression = tk;
         }
+
+        return true;
     }
 
     public tokenRegister(token: StringToken) {
@@ -100,7 +109,7 @@ export class SyntaxLogic {
         this.pushOp(memHandle.findOp(token.strVal, false));
     }
 
-    public finalize() {
+    public finalize() : boolean {
 
         if(this.currFunc() != null) {
             this.tokenSwitch();
@@ -110,10 +119,13 @@ export class SyntaxLogic {
                 //Trying to correct some syntax errors
 
             if(this.currFunc() != null) {
-                return null;
+                console.log("Wrong function param count or wrong syntax count");
+                
+                return false;
             }
         }   
 
         (this.expression.data as TokenDataComplex).resolveOps();
+        return true;
     }
 }
