@@ -2,8 +2,7 @@
   "files.exclude": {
     "__error": "Not found",
     "README.md": true,
-    "tsconfig.json": true,
-    "LICENSE": true,
-    ".gitignore": true
+    ".gitignore": true,
+    "LICENSE": true
   }
 }
